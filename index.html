@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Onion Physics 3D</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <canvas id="physicsCanvas" aria-label="3D physics sandbox"></canvas>
+
+      <header class="topbar">
+        <div class="brand" aria-label="Onion Physics 3D">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Onion Physics 3D</h1>
+            <p>Rigid cubes in a chaos arena</p>
+          </div>
+        </div>
+
+        <div class="top-actions" aria-label="Simulation actions">
+          <button class="icon-button" id="playPause" type="button" aria-label="Pause simulation" title="Pause or Play (Space)">
+            <span id="playPauseIcon" aria-hidden="true">||</span>
+          </button>
+          <button class="icon-button" id="singleStep" type="button" aria-label="Step simulation" title="Single Step">>|</button>
+          <button class="icon-button" id="resetCamera" type="button" aria-label="Reset camera" title="Reset Camera (V)">&#9673;</button>
+          <button class="icon-button" id="resetScene" type="button" aria-label="Reset scene" title="Reset Arena">&#8635;</button>
+          <button class="icon-button debug-toggle" id="toggleDebug" type="button" aria-label="Toggle debug panel" title="Debug Access">DBG</button>
+          <button class="icon-button danger" id="clearScene" type="button" aria-label="Clear cubes" title="Clear Arena">&times;</button>
+        </div>
+      </header>
+
+      <button
+        class="controls-toggle"
+        id="toggleControls"
+        type="button"
+        aria-label="Toggle control panel"
+        aria-controls="controlDock"
+        aria-expanded="false"
+        title="Open Controls (X)"
+      >
+        <span class="controls-toggle-kicker">Sandbox</span>
+        <span class="controls-toggle-label" id="toggleControlsLabel">Controls</span>
+      </button>
+
+      <aside class="control-dock collapsed" id="controlDock" aria-label="Physics controls">
+        <section class="control-group control-group-wide">
+          <span class="field-label">Drop</span>
+          <div class="button-row">
+            <button class="command-button primary" id="dropCube" type="button" title="Drop one cube (C)">Cube</button>
+            <button class="command-button" id="cubeStorm" type="button" title="Launch a cube storm (S)">Storm</button>
+            <button class="command-button" id="buildTower" type="button" title="Build a tower (T)">Tower</button>
+            <button class="command-button hot" id="shockwave" type="button" title="Blast nearby cubes (B)">Blast</button>
+            <button class="command-button" id="spawnRain" type="button" title="Toggle rain mode (R)">Rain</button>
+            <button class="command-button" id="shuffleScene" type="button" title="Kick every cube into chaos">Shuffle</button>
+          </div>
+        </section>
+
+        <section class="control-group control-group-compact">
+          <label class="field-label" for="cubeMaterial">Material</label>
+          <select id="cubeMaterial">
+            <option value="rubber">Rubber</option>
+            <option value="ice">Ice</option>
+            <option value="metal">Metal</option>
+            <option value="foam">Foam</option>
+          </select>
+        </section>
+
+        <section class="control-group control-group-slider">
+          <label class="field-label" for="cubeSize">Size</label>
+          <div class="range-line">
+            <input id="cubeSize" type="range" min="0.45" max="1.65" value="0.9" step="0.05" />
+            <output id="sizeOutput" for="cubeSize">0.90</output>
+          </div>
+        </section>
+
+        <section class="control-group control-group-slider">
+          <label class="field-label" for="chaosLevel">Chaos</label>
+          <div class="range-line">
+            <input id="chaosLevel" type="range" min="0" max="10" value="5" step="1" />
+            <output id="chaosOutput" for="chaosLevel">5</output>
+          </div>
+        </section>
+
+        <section class="control-group control-group-segmented">
+          <span class="field-label">Gravity</span>
+          <div class="segmented" id="gravityControls" aria-label="Gravity">
+            <button class="segment active" type="button" data-gravity="earth">Earth</button>
+            <button class="segment" type="button" data-gravity="moon">Moon</button>
+            <button class="segment" type="button" data-gravity="zero">Zero</button>
+            <button class="segment" type="button" data-gravity="side">Side</button>
+          </div>
+        </section>
+
+        <section class="control-group control-group-segmented">
+          <span class="field-label">Speed</span>
+          <div class="segmented" id="speedControls" aria-label="Simulation speed">
+            <button class="segment" type="button" data-speed="0.5">0.5x</button>
+            <button class="segment active" type="button" data-speed="1">1x</button>
+            <button class="segment" type="button" data-speed="1.75">1.75x</button>
+            <button class="segment" type="button" data-speed="2.5">2.5x</button>
+          </div>
+        </section>
+
+        <section class="control-group control-group-modes utility-group">
+          <span class="field-label">Modes</span>
+          <div class="toggle-grid">
+            <label class="toggle">
+              <input id="autoDrop" type="checkbox" />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span>Auto</span>
+            </label>
+            <label class="toggle">
+              <input id="trailMode" type="checkbox" checked />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span>Trails</span>
+            </label>
+          </div>
+        </section>
+      </aside>
+
+      <aside class="debug-panel hidden" id="debugPanel" aria-label="Debug access panel">
+        <div class="debug-panel-header">
+          <div>
+            <h2>Debug Access</h2>
+            <p>Live state, overrides, and sandbox tools</p>
+          </div>
+          <button class="icon-button" id="closeDebug" type="button" aria-label="Close debug panel" title="Close Debug">&times;</button>
+        </div>
+
+        <section class="debug-card">
+          <span class="field-label">Live Snapshot</span>
+          <div class="debug-stats">
+            <div>
+              <span>Bodies</span>
+              <strong id="debugBodies">0 / 170</strong>
+            </div>
+            <div>
+              <span>Gravity</span>
+              <strong id="debugGravity">0, -18, 0</strong>
+            </div>
+            <div>
+              <span>Spawn</span>
+              <strong id="debugSpawn">0.0, 0.0</strong>
+            </div>
+            <div>
+              <span>Camera</span>
+              <strong id="debugCamera">17.0 / -0.72 / 0.72</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="debug-card">
+          <span class="field-label">Overrides</span>
+          <div class="debug-range-stack">
+            <label class="field-label" for="maxBodies">Max Bodies</label>
+            <div class="range-line">
+              <input id="maxBodies" type="range" min="40" max="280" value="170" step="10" />
+              <output id="maxBodiesOutput" for="maxBodies">170</output>
+            </div>
+
+            <label class="field-label" for="trailStrength">Trail Strength</label>
+            <div class="range-line">
+              <input id="trailStrength" type="range" min="0" max="100" value="4" step="1" />
+              <output id="trailStrengthOutput" for="trailStrength">4%</output>
+            </div>
+          </div>
+        </section>
+
+        <section class="debug-card">
+          <span class="field-label">Debug Flags</span>
+          <div class="toggle-grid debug-toggle-grid">
+            <label class="toggle">
+              <input id="debugWireframe" type="checkbox" />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span>Wireframe</span>
+            </label>
+            <label class="toggle">
+              <input id="debugFreezeTarget" type="checkbox" />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span>Freeze Target</span>
+            </label>
+            <label class="toggle">
+              <input id="debugShowHud" type="checkbox" checked />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span>HUD</span>
+            </label>
+            <label class="toggle">
+              <input id="debugSlowMo" type="checkbox" />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span>Slow Mo</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="debug-card">
+          <span class="field-label">Debug Tools</span>
+          <div class="button-row debug-button-row">
+            <button class="command-button" id="debugSpawnBurst" type="button">Burst x12</button>
+            <button class="command-button" id="debugPurgeTrails" type="button">Purge FX</button>
+            <button class="command-button" id="debugReseed" type="button">Reseed</button>
+          </div>
+        </section>
+
+        <section class="debug-card">
+          <span class="field-label">State Dump</span>
+          <pre class="debug-snapshot" id="debugSnapshot">{}</pre>
+        </section>
+      </aside>
+
+      <div class="hud" id="hud" aria-live="polite">
+        <span id="cubeCount">0 cubes</span>
+        <span id="energyReadout">0 energy</span>
+        <span id="fpsReadout">60 fps</span>
+        <span id="gravityReadout">earth gravity</span>
+        <span id="speedReadout">1x sim</span>
+        <span id="heightReadout">0.0 peak</span>
+      </div>
+
+      <div class="loadout" id="loadout" role="status">Loading 3D engine</div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
