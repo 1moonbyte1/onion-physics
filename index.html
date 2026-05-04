@@ -48,11 +48,23 @@
         <section class="control-group control-group-wide">
           <span class="field-label">Drop</span>
           <div class="button-row">
-            <button class="command-button primary" id="dropCube" type="button" title="Drop one cube (C)">Cube</button>
+            <button class="command-button" id="dropCube" type="button" title="Select cube tool (C)">Cube</button>
+            <button class="command-button" id="dropSphere" type="button" title="Select sphere tool (O)">Sphere</button>
             <button class="command-button" id="cubeStorm" type="button" title="Launch a cube storm (S)">Storm</button>
             <button class="command-button" id="buildTower" type="button" title="Build a tower (T)">Tower</button>
-            <button class="command-button hot" id="shockwave" type="button" title="Blast nearby cubes (B)">Blast</button>
+            <button
+              class="command-button hot"
+              id="shockwave"
+              type="button"
+              aria-pressed="false"
+              title="Toggle blast mode (B), then click the arena"
+            >
+              Blast
+            </button>
             <button class="command-button" id="spawnRain" type="button" title="Toggle rain mode (R)">Rain</button>
+            <button class="command-button" id="freezeTool" type="button" aria-pressed="false" title="Toggle freeze tool (F)">Freeze</button>
+            <button class="command-button danger-tool" id="deleteTool" type="button" aria-pressed="false" title="Toggle delete tool (Del)">Delete</button>
+            <button class="command-button" id="demoScene" type="button" title="Reset to demo scene">Demo</button>
             <button class="command-button" id="shuffleScene" type="button" title="Kick every cube into chaos">Shuffle</button>
           </div>
         </section>
@@ -65,6 +77,11 @@
             <option value="metal">Metal</option>
             <option value="foam">Foam</option>
           </select>
+          <div class="material-stats" id="materialStats" aria-label="Material stats">
+            <span id="materialBounce">Bounce 82%</span>
+            <span id="materialWeight">Weight 0.85</span>
+            <span id="materialFriction">Friction 48%</span>
+          </div>
         </section>
 
         <section class="control-group control-group-slider">
@@ -81,6 +98,25 @@
             <input id="chaosLevel" type="range" min="0" max="10" value="5" step="1" />
             <output id="chaosOutput" for="chaosLevel">5</output>
           </div>
+        </section>
+
+        <section class="control-group control-group-blast">
+          <span class="field-label">Blast</span>
+          <label class="range-line" for="blastStrength">
+            <span>Power</span>
+            <input id="blastStrength" type="range" min="2" max="16" value="8" step="0.5" />
+            <output id="blastStrengthOutput" for="blastStrength">8.0</output>
+          </label>
+          <label class="range-line" for="blastRadius">
+            <span>Radius</span>
+            <input id="blastRadius" type="range" min="1.5" max="9" value="5.5" step="0.25" />
+            <output id="blastRadiusOutput" for="blastRadius">5.5</output>
+          </label>
+          <label class="range-line" for="blastLift">
+            <span>Lift</span>
+            <input id="blastLift" type="range" min="0" max="10" value="4" step="0.5" />
+            <output id="blastLiftOutput" for="blastLift">4.0</output>
+          </label>
         </section>
 
         <section class="control-group control-group-segmented">
@@ -210,12 +246,15 @@
       </aside>
 
       <div class="hud" id="hud" aria-live="polite">
-        <span id="cubeCount">0 cubes</span>
+        <span id="cubeCount">0 bodies</span>
         <span id="energyReadout">0 energy</span>
         <span id="fpsReadout">60 fps</span>
         <span id="gravityReadout">earth gravity</span>
         <span id="speedReadout">1x sim</span>
         <span id="heightReadout">0.0 peak</span>
+        <span id="toolReadout">cube tool</span>
+        <span id="blastReadout">blast 8.0 / 5.5 / 4.0</span>
+        <span id="materialReadout">rubber 82% bounce</span>
       </div>
 
       <div class="loadout" id="loadout" role="status">Loading 3D engine</div>

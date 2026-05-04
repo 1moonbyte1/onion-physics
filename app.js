@@ -3,6 +3,11 @@ const THREE_URLS = [
   "https://unpkg.com/three@0.160.0/build/three.module.js",
 ];
 
+const CANNON_URLS = [
+  "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js",
+  "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js",
+];
+
 const canvas = document.querySelector("#physicsCanvas");
 const loadout = document.querySelector("#loadout");
 const playPause = document.querySelector("#playPause");
@@ -16,16 +21,26 @@ const resetScene = document.querySelector("#resetScene");
 const toggleDebugButton = document.querySelector("#toggleDebug");
 const clearScene = document.querySelector("#clearScene");
 const dropCubeButton = document.querySelector("#dropCube");
+const dropSphereButton = document.querySelector("#dropSphere");
 const cubeStormButton = document.querySelector("#cubeStorm");
 const buildTowerButton = document.querySelector("#buildTower");
 const shockwaveButton = document.querySelector("#shockwave");
 const spawnRainButton = document.querySelector("#spawnRain");
+const freezeToolButton = document.querySelector("#freezeTool");
+const deleteToolButton = document.querySelector("#deleteTool");
+const demoSceneButton = document.querySelector("#demoScene");
 const shuffleSceneButton = document.querySelector("#shuffleScene");
 const cubeMaterial = document.querySelector("#cubeMaterial");
 const cubeSize = document.querySelector("#cubeSize");
 const sizeOutput = document.querySelector("#sizeOutput");
 const chaosLevel = document.querySelector("#chaosLevel");
 const chaosOutput = document.querySelector("#chaosOutput");
+const blastStrength = document.querySelector("#blastStrength");
+const blastStrengthOutput = document.querySelector("#blastStrengthOutput");
+const blastRadius = document.querySelector("#blastRadius");
+const blastRadiusOutput = document.querySelector("#blastRadiusOutput");
+const blastLift = document.querySelector("#blastLift");
+const blastLiftOutput = document.querySelector("#blastLiftOutput");
 const gravityControls = document.querySelector("#gravityControls");
 const speedControls = document.querySelector("#speedControls");
 const autoDrop = document.querySelector("#autoDrop");
@@ -36,6 +51,9 @@ const fpsReadout = document.querySelector("#fpsReadout");
 const gravityReadout = document.querySelector("#gravityReadout");
 const speedReadout = document.querySelector("#speedReadout");
 const heightReadout = document.querySelector("#heightReadout");
+const toolReadout = document.querySelector("#toolReadout");
+const blastReadout = document.querySelector("#blastReadout");
+const materialReadout = document.querySelector("#materialReadout");
 const hud = document.querySelector("#hud");
 const debugPanel = document.querySelector("#debugPanel");
 const closeDebugButton = document.querySelector("#closeDebug");
@@ -55,80 +73,97 @@ const debugSpawnBurst = document.querySelector("#debugSpawnBurst");
 const debugPurgeTrails = document.querySelector("#debugPurgeTrails");
 const debugReseed = document.querySelector("#debugReseed");
 const debugSnapshot = document.querySelector("#debugSnapshot");
+const materialBounce = document.querySelector("#materialBounce");
+const materialWeight = document.querySelector("#materialWeight");
+const materialFriction = document.querySelector("#materialFriction");
 
 const MATERIALS = {
   rubber: {
     color: 0x68e07f,
     emissive: 0x092414,
-    roughness: 0.52,
+    roughness: 0.5,
     metalness: 0.02,
-    mass: 0.85,
+    density: 0.85,
     restitution: 0.82,
-    friction: 0.58,
+    friction: 0.48,
+    linearDamping: 0.015,
+    angularDamping: 0.025,
   },
   ice: {
     color: 0x7bc8ff,
-    emissive: 0x081b2c,
-    roughness: 0.18,
+    emissive: 0x071b2c,
+    roughness: 0.16,
     metalness: 0.05,
-    mass: 0.72,
-    restitution: 0.5,
-    friction: 0.08,
+    density: 0.72,
+    restitution: 0.34,
+    friction: 0.02,
+    linearDamping: 0.004,
+    angularDamping: 0.006,
   },
   metal: {
     color: 0xb9bec8,
     emissive: 0x0a0b0c,
     roughness: 0.36,
     metalness: 0.82,
-    mass: 2.35,
-    restitution: 0.24,
-    friction: 0.42,
+    density: 2.35,
+    restitution: 0.18,
+    friction: 0.38,
+    linearDamping: 0.008,
+    angularDamping: 0.014,
   },
   foam: {
     color: 0xffcb63,
     emissive: 0x301c05,
     roughness: 0.74,
     metalness: 0.0,
-    mass: 0.38,
-    restitution: 0.68,
-    friction: 0.82,
+    density: 0.38,
+    restitution: 0.55,
+    friction: 0.78,
+    linearDamping: 0.035,
+    angularDamping: 0.048,
   },
 };
 
 const GRAVITY = {
-  earth: { x: 0, y: -18, z: 0 },
-  moon: { x: 0, y: -4.2, z: 0 },
-  zero: { x: 0, y: 0, z: 0 },
-  side: { x: 13, y: -5, z: 0 },
+  earth: { x: 0, y: -16.5, z: 0, label: "earth gravity" },
+  moon: { x: 0, y: -3.2, z: 0, label: "moon gravity" },
+  zero: { x: 0, y: 0, z: 0, label: "zero gravity" },
+  side: { x: 11, y: -4.5, z: 0, label: "side gravity" },
 };
 
-const world = {
+const app = {
   arena: 9,
-  maxBodies: 170,
   bodies: [],
+  trails: [],
+  targetMarkers: [],
+  maxBodies: Number(maxBodies.value),
   playing: true,
   gravity: "earth",
-  chaos: Number(chaosLevel.value),
-  cubeSize: Number(cubeSize.value),
-  spawnTarget: { x: 0, y: 0, z: 0 },
-  lastAutoDrop: 0,
-  lastRainDrop: 0,
-  frameCount: 0,
-  fpsStartedAt: performance.now(),
-  energy: 0,
   simSpeed: 1,
-  rainMode: false,
-  trailsEnabled: true,
-  trailOpacity: 0.04,
-  trailLimit: 3,
-  peakHeight: 0,
-  statusTimer: 0,
+  cubeSize: Number(cubeSize.value),
+  chaos: Number(chaosLevel.value),
+  tool: "cube",
+  blastStrength: Number(blastStrength.value),
+  blastRadius: Number(blastRadius.value),
+  blastLift: Number(blastLift.value),
+  spawnTarget: { x: 0, z: 0 },
   controlsOpen: false,
   debugOpen: false,
-  freezeTarget: false,
-  showHud: true,
+  blastMode: false,
+  rainMode: false,
+  trailsEnabled: trailMode.checked,
+  trailOpacity: Number(trailStrength.value) / 100,
   debugWireframe: false,
+  freezeTarget: false,
   debugSlowMo: false,
+  showHud: true,
+  lastAutoDrop: 0,
+  lastRainDrop: 0,
+  lastTrailAt: 0,
+  energy: 0,
+  peakHeight: 0,
+  frameCount: 0,
+  fpsStartedAt: performance.now(),
 };
 
 const pointer = {
@@ -148,21 +183,26 @@ const cameraRig = {
 };
 
 let THREE;
+let CANNON;
 let renderer;
 let scene;
 let camera;
 let raycaster;
-let floor;
 let marker;
-let arenaGroup;
-let clock;
 let sharedGeometry;
+let sharedSphereGeometry;
+let arenaGroup;
+let blastPreview;
+let physicsWorld;
+let staticMaterial;
+let physicsMaterials = {};
+let fixedTimeStep = 1 / 60;
 let lastNow = performance.now();
 
-async function loadThree() {
+async function loadModule(urls, label) {
   let lastError;
 
-  for (const url of THREE_URLS) {
+  for (const url of urls) {
     try {
       return await import(url);
     } catch (error) {
@@ -170,168 +210,30 @@ async function loadThree() {
     }
   }
 
-  throw lastError || new Error("Unable to load Three.js");
-}
-
-function vec3(x = 0, y = 0, z = 0) {
-  return new THREE.Vector3(x, y, z);
+  throw lastError || new Error(`${label} could not load`);
 }
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
-function formatNumber(value, digits = 2) {
-  return Number.parseFloat(value.toFixed(digits)).toString();
-}
-
-function getEffectiveSimSpeed() {
-  return world.simSpeed * (world.debugSlowMo ? 0.35 : 1);
+function lengthSquared(vector) {
+  return vector.x * vector.x + vector.y * vector.y + vector.z * vector.z;
 }
 
 function setStatus(text) {
   loadout.textContent = text;
   loadout.classList.remove("hidden");
-  if (world.statusTimer) {
-    window.clearTimeout(world.statusTimer);
-    world.statusTimer = 0;
-  }
 }
 
 function hideStatus() {
   loadout.classList.add("hidden");
 }
 
-function flashStatus(text, duration = 1100) {
+function flashStatus(text, duration = 900) {
   setStatus(text);
-  world.statusTimer = window.setTimeout(() => {
-    hideStatus();
-    world.statusTimer = 0;
-  }, duration);
-}
-
-function setControlsOpen(open) {
-  world.controlsOpen = open;
-  controlDock.classList.toggle("collapsed", !open);
-  toggleControlsButton.classList.toggle("active", open);
-  toggleControlsButton.setAttribute("aria-expanded", String(open));
-  toggleControlsButton.title = open ? "Hide Controls (X)" : "Open Controls (X)";
-  toggleControlsLabel.textContent = open ? "Hide Controls" : "Controls";
-  document.body.classList.toggle("controls-open", open);
-}
-
-function setDebugOpen(open) {
-  world.debugOpen = open;
-  debugPanel.classList.toggle("hidden", !open);
-  toggleDebugButton.classList.toggle("active", open);
-  toggleDebugButton.setAttribute("aria-pressed", String(open));
-  if (open) updateDebugPanel();
-}
-
-function setHudVisible(visible) {
-  world.showHud = visible;
-  hud.classList.toggle("hidden", !visible);
-  debugShowHud.checked = visible;
-}
-
-function setWireframe(enabled) {
-  world.debugWireframe = enabled;
-  scene.traverse((object) => {
-    if (!object.isMesh || object === marker) return;
-    if (Array.isArray(object.material)) {
-      for (const material of object.material) material.wireframe = enabled;
-      return;
-    }
-    object.material.wireframe = enabled;
-  });
-}
-
-function setMaxBodies(value) {
-  world.maxBodies = value;
-  maxBodies.value = String(value);
-  maxBodiesOutput.textContent = String(value);
-  while (world.bodies.length > world.maxBodies) {
-    removeBody(world.bodies[0]);
-  }
-}
-
-function setTrailOpacity(value) {
-  world.trailOpacity = value;
-  trailStrength.value = String(Math.round(value * 100));
-  trailStrengthOutput.textContent = `${Math.round(value * 100)}%`;
-  if (value <= 0) clearAllTrails();
-}
-
-function clearAllTrails() {
-  for (const body of world.bodies) clearTrail(body);
-}
-
-function spawnDebugBurst() {
-  for (let i = 0; i < 12; i += 1) {
-    dropCube(
-      world.spawnTarget.x + randomBetween(-1.8, 1.8),
-      world.spawnTarget.z + randomBetween(-1.8, 1.8),
-      {
-        y: randomBetween(9, 16),
-        size: world.cubeSize * randomBetween(0.7, 1.2),
-      },
-    );
-  }
-
-  flashStatus("Debug burst spawned");
-}
-
-function reseedArena() {
-  resetWorld();
-  cubeStorm();
-  flashStatus("Arena reseeded");
-}
-
-function updateDebugPanel() {
-  if (!world.debugOpen) return;
-
-  const gravity = GRAVITY[world.gravity];
-  const effectiveSpeed = getEffectiveSimSpeed();
-
-  debugBodies.textContent = `${world.bodies.length} / ${world.maxBodies}`;
-  debugGravity.textContent = `${gravity.x}, ${gravity.y}, ${gravity.z}`;
-  debugSpawn.textContent = `${formatNumber(world.spawnTarget.x, 1)}, ${formatNumber(world.spawnTarget.z, 1)}`;
-  debugCamera.textContent =
-    `${formatNumber(cameraRig.distance, 1)} / ${formatNumber(cameraRig.yaw, 2)} / ${formatNumber(cameraRig.pitch, 2)}`;
-
-  debugSnapshot.textContent = JSON.stringify({
-    playing: world.playing,
-    bodies: world.bodies.length,
-    maxBodies: world.maxBodies,
-    material: cubeMaterial.value,
-    gravity: world.gravity,
-    gravityVector: gravity,
-    simSpeed: world.simSpeed,
-    effectiveSpeed,
-    chaos: world.chaos,
-    cubeSize: world.cubeSize,
-    energy: Math.round(world.energy),
-    peakHeight: Number(world.peakHeight.toFixed(2)),
-    spawnTarget: {
-      x: Number(world.spawnTarget.x.toFixed(2)),
-      z: Number(world.spawnTarget.z.toFixed(2)),
-    },
-    camera: {
-      yaw: Number(cameraRig.yaw.toFixed(3)),
-      pitch: Number(cameraRig.pitch.toFixed(3)),
-      distance: Number(cameraRig.distance.toFixed(2)),
-    },
-    flags: {
-      autoDrop: autoDrop.checked,
-      rainMode: world.rainMode,
-      trailsEnabled: world.trailsEnabled,
-      trailOpacity: world.trailOpacity,
-      wireframe: world.debugWireframe,
-      freezeTarget: world.freezeTarget,
-      hud: world.showHud,
-      slowMo: world.debugSlowMo,
-    },
-  }, null, 2);
+  window.clearTimeout(flashStatus.timeout);
+  flashStatus.timeout = window.setTimeout(hideStatus, duration);
 }
 
 function buildScene() {
@@ -339,9 +241,8 @@ function buildScene() {
   scene.background = new THREE.Color(0x10130f);
   scene.fog = new THREE.Fog(0x10130f, 20, 54);
 
-  camera = new THREE.PerspectiveCamera(58, 1, 0.1, 120);
+  camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 120);
   raycaster = new THREE.Raycaster();
-  clock = new THREE.Clock();
 
   renderer = new THREE.WebGLRenderer({
     canvas,
@@ -349,17 +250,84 @@ function buildScene() {
     powerPreference: "high-performance",
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.setClearColor(0x10130f, 1);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setClearColor(0x10130f, 1);
 
   sharedGeometry = new THREE.BoxGeometry(1, 1, 1, 2, 2, 2);
+  sharedSphereGeometry = new THREE.SphereGeometry(0.5, 32, 18);
+  setupPhysics();
   addLights();
   addArena();
   addMarker();
+  addBlastPreview();
   resetWorld();
-  resize();
+  updateCamera();
+}
+
+function setupPhysics() {
+  physicsWorld = new CANNON.World({
+    gravity: new CANNON.Vec3(0, -16.5, 0),
+  });
+  physicsWorld.allowSleep = true;
+  physicsWorld.broadphase = new CANNON.SAPBroadphase(physicsWorld);
+  physicsWorld.solver.iterations = 18;
+  physicsWorld.solver.tolerance = 0.001;
+  physicsWorld.defaultContactMaterial.contactEquationStiffness = 1e7;
+  physicsWorld.defaultContactMaterial.contactEquationRelaxation = 4;
+  physicsWorld.defaultContactMaterial.friction = 0.35;
+  physicsWorld.defaultContactMaterial.restitution = 0.25;
+
+  staticMaterial = new CANNON.Material("arena");
+  physicsMaterials = {};
+
+  for (const [name, spec] of Object.entries(MATERIALS)) {
+    physicsMaterials[name] = new CANNON.Material(name);
+    physicsWorld.addContactMaterial(
+      new CANNON.ContactMaterial(physicsMaterials[name], staticMaterial, {
+        friction: spec.friction,
+        restitution: spec.restitution,
+        contactEquationStiffness: 1e7,
+        contactEquationRelaxation: 4,
+      }),
+    );
+  }
+
+  const entries = Object.entries(MATERIALS);
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i; j < entries.length; j += 1) {
+      const [nameA, a] = entries[i];
+      const [nameB, b] = entries[j];
+      physicsWorld.addContactMaterial(
+        new CANNON.ContactMaterial(physicsMaterials[nameA], physicsMaterials[nameB], {
+          friction: Math.sqrt(a.friction * b.friction),
+          restitution: Math.max(a.restitution, b.restitution),
+          contactEquationStiffness: 1e7,
+          contactEquationRelaxation: 4,
+        }),
+      );
+    }
+  }
+
+  addStaticBody(new CANNON.Vec3(0, -0.25, 0), new CANNON.Vec3(app.arena, 0.25, app.arena));
+  addStaticBody(new CANNON.Vec3(0, 2.5, -app.arena), new CANNON.Vec3(app.arena, 2.5, 0.22));
+  addStaticBody(new CANNON.Vec3(0, 2.5, app.arena), new CANNON.Vec3(app.arena, 2.5, 0.22));
+  addStaticBody(new CANNON.Vec3(-app.arena, 2.5, 0), new CANNON.Vec3(0.22, 2.5, app.arena));
+  addStaticBody(new CANNON.Vec3(app.arena, 2.5, 0), new CANNON.Vec3(0.22, 2.5, app.arena));
+}
+
+function addStaticBody(position, halfExtents) {
+  const body = new CANNON.Body({
+    mass: 0,
+    material: staticMaterial,
+    position,
+    type: CANNON.Body.STATIC,
+  });
+  body.addShape(new CANNON.Box(halfExtents));
+  physicsWorld.addBody(body);
+  return body;
 }
 
 function addLights() {
@@ -391,18 +359,19 @@ function addArena() {
   arenaGroup = new THREE.Group();
   scene.add(arenaGroup);
 
-  const floorGeometry = new THREE.BoxGeometry(world.arena * 2, 0.45, world.arena * 2);
-  const floorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x202820,
-    roughness: 0.7,
-    metalness: 0.08,
-  });
-  floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.position.y = -0.23;
+  const floor = new THREE.Mesh(
+    new THREE.BoxGeometry(app.arena * 2, 0.5, app.arena * 2),
+    new THREE.MeshStandardMaterial({
+      color: 0x202820,
+      roughness: 0.7,
+      metalness: 0.08,
+    }),
+  );
+  floor.position.y = -0.25;
   floor.receiveShadow = true;
   arenaGroup.add(floor);
 
-  const grid = new THREE.GridHelper(world.arena * 2, 18, 0x73e0bc, 0x3d554a);
+  const grid = new THREE.GridHelper(app.arena * 2, 18, 0x73e0bc, 0x3d554a);
   grid.position.y = 0.012;
   grid.material.transparent = true;
   grid.material.opacity = 0.42;
@@ -417,10 +386,10 @@ function addArena() {
   });
 
   const wallSpecs = [
-    [world.arena * 2, 5, 0.4, 0, 2.5, -world.arena],
-    [world.arena * 2, 5, 0.4, 0, 2.5, world.arena],
-    [0.4, 5, world.arena * 2, -world.arena, 2.5, 0],
-    [0.4, 5, world.arena * 2, world.arena, 2.5, 0],
+    [app.arena * 2, 5, 0.44, 0, 2.5, -app.arena],
+    [app.arena * 2, 5, 0.44, 0, 2.5, app.arena],
+    [0.44, 5, app.arena * 2, -app.arena, 2.5, 0],
+    [0.44, 5, app.arena * 2, app.arena, 2.5, 0],
   ];
 
   for (const spec of wallSpecs) {
@@ -440,163 +409,322 @@ function addMarker() {
   });
   marker = new THREE.Mesh(ringGeometry, ringMaterial);
   marker.rotation.x = Math.PI / 2;
-  marker.position.set(0, 0.04, 0);
+  marker.position.set(0, 0.05, 0);
   scene.add(marker);
 }
 
-function materialFor(type) {
+function addBlastPreview() {
+  blastPreview = new THREE.Group();
+  blastPreview.visible = false;
+
+  const fill = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 72),
+    new THREE.MeshBasicMaterial({
+      color: 0xff7b54,
+      transparent: true,
+      opacity: 0.08,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  fill.rotation.x = -Math.PI / 2;
+  blastPreview.add(fill);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1, 0.018, 8, 96),
+    new THREE.MeshBasicMaterial({
+      color: 0xff7b54,
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+    }),
+  );
+  ring.rotation.x = Math.PI / 2;
+  blastPreview.add(ring);
+
+  blastPreview.position.set(0, 0.07, 0);
+  scene.add(blastPreview);
+  updateBlastPreview();
+}
+
+function createVisualMaterial(type) {
   const spec = MATERIALS[type];
   return new THREE.MeshStandardMaterial({
     color: spec.color,
     emissive: spec.emissive,
     roughness: spec.roughness,
     metalness: spec.metalness,
+    wireframe: app.debugWireframe,
   });
 }
 
-function createBody(type, x, y, z, size, velocity = null) {
+function createBody(type, x, y, z, size, velocity = null, shapeKind = "cube") {
   const spec = MATERIALS[type];
-  const mesh = new THREE.Mesh(sharedGeometry, materialFor(type));
+  const half = size / 2;
+  const volume = shapeKind === "sphere" ? (4 / 3) * Math.PI * half * half * half : size * size * size;
+  const mass = Math.max(0.05, spec.density * volume);
+  const shape = shapeKind === "sphere" ? new CANNON.Sphere(half) : new CANNON.Box(new CANNON.Vec3(half, half, half));
+  const body = new CANNON.Body({
+    mass,
+    material: physicsMaterials[type],
+    position: new CANNON.Vec3(x, y, z),
+    linearDamping: spec.linearDamping,
+    angularDamping: spec.angularDamping,
+    allowSleep: true,
+    sleepSpeedLimit: 0.08,
+    sleepTimeLimit: 1.2,
+  });
+  body.addShape(shape);
+  body.quaternion.setFromEuler(randomBetween(-0.5, 0.5), randomBetween(-0.5, 0.5), randomBetween(-0.5, 0.5));
+
+  if (velocity) {
+    body.velocity.set(velocity.x, velocity.y, velocity.z);
+  } else {
+    body.velocity.set(randomBetween(-1, 1), randomBetween(0.4, 2), randomBetween(-1, 1));
+  }
+
+  body.angularVelocity.set(randomBetween(-3, 3), randomBetween(-3, 3), randomBetween(-3, 3));
+  physicsWorld.addBody(body);
+
+  const mesh = new THREE.Mesh(shapeKind === "sphere" ? sharedSphereGeometry : sharedGeometry, createVisualMaterial(type));
+  mesh.scale.setScalar(size);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  mesh.scale.setScalar(size);
-  mesh.position.set(x, y, z);
-  mesh.rotation.set(randomBetween(-0.5, 0.5), randomBetween(-0.5, 0.5), randomBetween(-0.5, 0.5));
   scene.add(mesh);
 
-  const mass = spec.mass * size * size * size;
-  const body = {
-    mesh,
+  const entry = {
+    shapeKind,
     type,
     size,
-    half: size / 2,
-    mass,
-    invMass: 1 / mass,
-    restitution: spec.restitution,
-    friction: spec.friction,
-    pos: mesh.position.clone(),
-    vel: velocity || vec3(randomBetween(-1.5, 1.5), randomBetween(1, 3), randomBetween(-1.5, 1.5)),
-    angularVel: vec3(randomBetween(-4, 4), randomBetween(-4, 4), randomBetween(-4, 4)),
-    lastTrailPos: null,
-    trail: [],
+    originalMass: mass,
+    frozen: false,
+    body,
+    mesh,
+    birth: performance.now(),
+  };
+  mesh.userData.bodyEntry = entry;
+
+  app.bodies.push(entry);
+  while (app.bodies.length > app.maxBodies) {
+    removeBody(app.bodies[0]);
+  }
+
+  return entry;
+}
+
+function removeBody(entry) {
+  const index = app.bodies.indexOf(entry);
+  if (index >= 0) app.bodies.splice(index, 1);
+  physicsWorld.removeBody(entry.body);
+  scene.remove(entry.mesh);
+  entry.mesh.material.dispose();
+}
+
+function clearWorld() {
+  for (const entry of [...app.bodies]) removeBody(entry);
+  clearAllTrails();
+  clearTargetMarkers();
+  app.energy = 0;
+  app.peakHeight = 0;
+}
+
+function resetWorld() {
+  clearWorld();
+  buildTower(0, -1.65, 0.95, false);
+
+  for (let i = 0; i < 8; i += 1) {
+    createBody(
+      i % 2 === 0 ? "ice" : "foam",
+      randomBetween(-4.5, 4.5),
+      randomBetween(5, 10),
+      randomBetween(-3.5, 4.5),
+      randomBetween(0.55, 0.9),
+    );
+  }
+
+  flashStatus("Physics reset", 700);
+}
+
+function resetDemoScene() {
+  clearWorld();
+  setTool("cube", { silent: true });
+  buildTower(-3.2, -2.8, 0.82, false);
+  buildTower(3.0, 2.5, 0.72, false);
+
+  const looseBodies = [
+    ["rubber", "sphere", -5.8, 5.4, 1.05],
+    ["ice", "sphere", -4.6, 4.6, 0.86],
+    ["metal", "cube", 4.8, -4.8, 0.9],
+    ["foam", "cube", 5.8, -3.7, 1.0],
+    ["ice", "cube", 0.2, 4.6, 0.78],
+    ["foam", "sphere", 1.3, 5.3, 0.95],
+  ];
+
+  for (const [type, shapeKind, x, z, size] of looseBodies) {
+    createBody(type, x, randomBetween(3.5, 7.2), z, size, { x: 0, y: 0, z: 0 }, shapeKind);
+  }
+
+  const targets = [
+    [-6.2, 0.4],
+    [0, 0.8],
+    [6.2, 0.4],
+  ];
+
+  for (const [x, z] of targets) {
+    addTargetMarker(x, z);
+    createBody("metal", x, 1.1, z, 0.88, { x: 0, y: 0, z: 0 }, "sphere");
+  }
+
+  flashStatus("Demo scene loaded", 900);
+}
+
+function addTargetMarker(x, z) {
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.72, 0.035, 8, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0xff7b54,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+    }),
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(x, 0.075, z);
+  scene.add(ring);
+  app.targetMarkers.push(ring);
+}
+
+function clearTargetMarkers() {
+  for (const markerMesh of app.targetMarkers) {
+    scene.remove(markerMesh);
+    markerMesh.geometry.dispose();
+    markerMesh.material.dispose();
+  }
+  app.targetMarkers.length = 0;
+}
+
+function dropCube(x = app.spawnTarget.x, z = app.spawnTarget.z, options = {}) {
+  const type = options.type || cubeMaterial.value;
+  const size = options.size || app.cubeSize;
+  const chaos = app.chaos / 10;
+  const velocity = {
+    x: randomBetween(-1.2, 1.2) * chaos,
+    y: randomBetween(-0.2, 1.2),
+    z: randomBetween(-1.2, 1.2) * chaos,
   };
 
-  if (world.bodies.length >= world.maxBodies) {
-    removeBody(world.bodies[0]);
-  }
-
-  world.bodies.push(body);
-  return body;
+  const entry = createBody(type, x, options.y || randomBetween(7, 10.5), z, size, velocity, "cube");
+  entry.body.angularVelocity.x *= 1 + chaos * 0.8;
+  entry.body.angularVelocity.y *= 1 + chaos * 0.8;
+  entry.body.angularVelocity.z *= 1 + chaos * 0.8;
+  marker.scale.setScalar(0.9 + size * 0.45);
+  return entry;
 }
 
-function removeBody(body) {
-  const index = world.bodies.indexOf(body);
-  if (index >= 0) world.bodies.splice(index, 1);
-  scene.remove(body.mesh);
-  body.mesh.material.dispose();
-  clearTrail(body);
-}
-
-function clearTrail(body) {
-  for (const ghost of body.trail) {
-    scene.remove(ghost);
-    ghost.material.dispose();
-  }
-  body.trail.length = 0;
-  body.lastTrailPos = null;
-}
-
-function dropCube(x = world.spawnTarget.x, z = world.spawnTarget.z, options = {}) {
+function dropSphere(x = app.spawnTarget.x, z = app.spawnTarget.z, options = {}) {
   const type = options.type || cubeMaterial.value;
-  const size = options.size || world.cubeSize;
-  const chaos = world.chaos / 10;
-  const spawnY = options.y || randomBetween(7, 11);
-  const velocity = vec3(
-    randomBetween(-3.2, 3.2) * chaos,
-    randomBetween(-1, 2.5),
-    randomBetween(-3.2, 3.2) * chaos,
-  );
-
-  const body = createBody(type, x, spawnY, z, size, velocity);
-  body.angularVel.multiplyScalar(1 + chaos * 2.6);
-  pulseMarker(0.9 + size * 0.5);
+  const size = options.size || app.cubeSize;
+  const chaos = app.chaos / 10;
+  const velocity = {
+    x: randomBetween(-1.8, 1.8) * chaos,
+    y: randomBetween(0.2, 1.8),
+    z: randomBetween(-1.8, 1.8) * chaos,
+  };
+  const entry = createBody(type, x, options.y || randomBetween(7, 10.5), z, size, velocity, "sphere");
+  entry.body.angularVelocity.set(randomBetween(-4, 4), randomBetween(-4, 4), randomBetween(-4, 4));
+  marker.scale.setScalar(0.9 + size * 0.45);
+  return entry;
 }
 
 function cubeStorm() {
-  const count = 28 + world.chaos * 3;
+  const count = 18 + app.chaos * 2;
   for (let i = 0; i < count; i += 1) {
-    const size = world.cubeSize * randomBetween(0.65, 1.25);
-    dropCube(randomBetween(-6.8, 6.8), randomBetween(-6.8, 6.8), {
-      y: randomBetween(8, 20),
-      size,
+    const drop = Math.random() < 0.35 ? dropSphere : dropCube;
+    drop(randomBetween(-6.6, 6.6), randomBetween(-6.6, 6.6), {
+      y: randomBetween(8, 17),
+      size: app.cubeSize * randomBetween(0.65, 1.2),
     });
   }
-
-  flashStatus(`Storm dropped: ${count} cubes`);
+  flashStatus("Physics storm", 800);
 }
 
-function shockwave() {
-  const origin = vec3(world.spawnTarget.x, 0.4, world.spawnTarget.z);
-  const strength = 18 + world.chaos * 8;
+function buildTower(centerX = app.spawnTarget.x, centerZ = app.spawnTarget.z, size = app.cubeSize, announce = true) {
+  const levels = 5;
+  const gap = size * 1.02;
+  const baseY = size / 2 + 0.02;
+  const pattern = [
+    [-gap, 0],
+    [0, 0],
+    [gap, 0],
+  ];
 
-  for (const body of world.bodies) {
-    const direction = body.pos.clone().sub(origin);
-    const distance = Math.max(direction.length(), 0.75);
-    direction.normalize();
-    const lift = vec3(0, randomBetween(0.8, 1.6), 0);
-    const impulse = direction.add(lift).normalize().multiplyScalar(strength / distance);
-    body.vel.add(impulse.multiplyScalar(body.invMass * 1.4));
-    body.angularVel.add(vec3(randomBetween(-12, 12), randomBetween(-12, 12), randomBetween(-12, 12)));
+  for (let level = 0; level < levels; level += 1) {
+    const rotate = level % 2 === 1;
+    for (const [ox, oz] of pattern) {
+      const x = centerX + (rotate ? 0 : ox);
+      const z = centerZ + (rotate ? ox : oz);
+      const entry = createBody("rubber", x, baseY + level * gap, z, size, { x: 0, y: 0, z: 0 });
+      entry.body.quaternion.setFromEuler(0, rotate ? Math.PI / 2 : 0, 0);
+      entry.body.angularVelocity.set(0, 0, 0);
+    }
+  }
+
+  if (announce) flashStatus("Tower built", 800);
+}
+
+function shockwave(x = app.spawnTarget.x, z = app.spawnTarget.z, options = {}) {
+  const origin = { x, y: 0.35, z };
+  const radius = app.blastRadius;
+  const launch = app.blastStrength;
+  const lift = app.blastLift;
+  let affected = 0;
+
+  for (const entry of app.bodies) {
+    const p = entry.body.position;
+    const dx = p.x - origin.x;
+    const dz = p.z - origin.z;
+    const horizontalDistance = Math.hypot(dx, dz);
+    const verticalPenalty = Math.max(0, p.y - origin.y) * 0.18;
+    const distance = Math.max(0.25, horizontalDistance + verticalPenalty);
+    const reach = radius + entry.size * 0.8;
+    if (distance > reach) continue;
+
+    const rawFalloff = Math.max(0, 1 - distance / reach);
+    const falloff = rawFalloff * rawFalloff * (3 - 2 * rawFalloff);
+    const directionX = horizontalDistance > 0.001 ? dx / horizontalDistance : randomBetween(-1, 1);
+    const directionZ = horizontalDistance > 0.001 ? dz / horizontalDistance : randomBetween(-1, 1);
+    const massScale = entry.body.mass;
+    const impulse = new CANNON.Vec3(
+      directionX * launch * falloff * massScale,
+      lift * (0.38 + falloff) * falloff * massScale,
+      directionZ * launch * falloff * massScale,
+    );
+    const contactPoint = new CANNON.Vec3(
+      randomBetween(-entry.size * 0.35, entry.size * 0.35),
+      randomBetween(-entry.size * 0.15, entry.size * 0.35),
+      randomBetween(-entry.size * 0.35, entry.size * 0.35),
+    );
+
+    entry.body.wakeUp();
+    entry.body.applyImpulse(impulse, contactPoint);
+    affected += 1;
   }
 
   addShockRing(origin);
-  flashStatus("Shockwave fired");
-}
-
-function buildTower() {
-  const levels = 5 + Math.round(world.chaos * 0.6);
-  const spacing = world.cubeSize * 1.08;
-  const wobble = Math.min(0.26, world.chaos * 0.02);
-
-  for (let i = 0; i < levels; i += 1) {
-    const offsetX = randomBetween(-wobble, wobble);
-    const offsetZ = randomBetween(-wobble, wobble);
-    createBody(
-      cubeMaterial.value,
-      world.spawnTarget.x + offsetX,
-      world.cubeSize / 2 + i * spacing,
-      world.spawnTarget.z + offsetZ,
-      world.cubeSize,
-      vec3(0, 0, 0),
-    );
-  }
-
-  pulseMarker(1.2 + world.cubeSize * 0.4);
-  flashStatus(`Tower built: ${levels} cubes`);
-}
-
-function toggleRain(force = !world.rainMode) {
-  world.rainMode = force;
-  spawnRainButton.classList.toggle("active", world.rainMode);
-  spawnRainButton.setAttribute("aria-pressed", String(world.rainMode));
-  flashStatus(world.rainMode ? "Rain mode on" : "Rain mode off");
+  marker.scale.setScalar(1.65);
+  if (!options.silent) flashStatus(`Blast hit ${affected} cubes`, 750);
 }
 
 function shuffleScene() {
-  for (const body of world.bodies) {
-    body.vel.set(
-      randomBetween(-10, 10),
-      randomBetween(1, 12),
-      randomBetween(-10, 10),
-    );
-    body.angularVel.set(
-      randomBetween(-14, 14),
-      randomBetween(-14, 14),
-      randomBetween(-14, 14),
+  const power = 2.5 + app.chaos * 0.45;
+  for (const entry of app.bodies) {
+    entry.body.wakeUp();
+    entry.body.applyImpulse(
+      new CANNON.Vec3(randomBetween(-power, power), randomBetween(1, power * 1.4), randomBetween(-power, power)),
+      new CANNON.Vec3(randomBetween(-0.4, 0.4), randomBetween(-0.4, 0.4), randomBetween(-0.4, 0.4)),
     );
   }
-
-  flashStatus("Scene shuffled");
+  flashStatus("Scene shuffled", 700);
 }
 
 function addShockRing(origin) {
@@ -627,69 +755,182 @@ function addShockRing(origin) {
   requestAnimationFrame(animateRing);
 }
 
-function pulseMarker(scale) {
-  marker.scale.setScalar(scale);
+function toggleRain(force = null) {
+  app.rainMode = force === null ? !app.rainMode : force;
+  spawnRainButton.classList.toggle("active", app.rainMode);
+  spawnRainButton.setAttribute("aria-pressed", String(app.rainMode));
+  flashStatus(app.rainMode ? "Rain enabled" : "Rain disabled");
 }
 
-function resetWorld() {
-  clearWorld();
-  const base = [
-    [-2.2, 0.5, -1.6],
-    [-1.1, 0.5, -1.6],
-    [0, 0.5, -1.6],
-    [1.1, 0.5, -1.6],
-    [2.2, 0.5, -1.6],
-    [-1.6, 1.55, -1.6],
-    [-0.55, 1.55, -1.6],
-    [0.55, 1.55, -1.6],
-    [1.6, 1.55, -1.6],
-    [-1.05, 2.6, -1.6],
-    [0, 2.6, -1.6],
-    [1.05, 2.6, -1.6],
+function setTool(tool, options = {}) {
+  app.tool = tool;
+  app.blastMode = tool === "blast";
+
+  const activeButtons = [
+    [dropCubeButton, "cube"],
+    [dropSphereButton, "sphere"],
+    [shockwaveButton, "blast"],
+    [freezeToolButton, "freeze"],
+    [deleteToolButton, "delete"],
   ];
 
-  for (const [x, y, z] of base) {
-    createBody("rubber", x, y, z, 0.95, vec3(0, 0, 0));
+  for (const [button, buttonTool] of activeButtons) {
+    const active = tool === buttonTool;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   }
 
-  for (let i = 0; i < 10; i += 1) {
-    createBody("ice", randomBetween(-4, 4), randomBetween(5, 11), randomBetween(-3, 4), randomBetween(0.55, 0.9));
+  document.body.classList.toggle("blast-mode", tool === "blast");
+  document.body.classList.toggle("freeze-mode", tool === "freeze");
+  document.body.classList.toggle("delete-mode", tool === "delete");
+
+  if (marker?.material) {
+    const color = tool === "blast" ? 0xff7b54 : tool === "freeze" ? 0x55a8ff : tool === "delete" ? 0xff5454 : 0x73e0bc;
+    marker.material.color.setHex(color);
+    marker.material.opacity = tool === "cube" || tool === "sphere" ? 0.78 : 0.92;
   }
 
-  world.peakHeight = 0;
-  flashStatus("Arena reset");
+  updateBlastPreview();
+  updateToolReadouts();
+
+  if (!options.silent) {
+    const labels = {
+      cube: "Cube tool",
+      sphere: "Sphere tool",
+      blast: "Blast armed: click the arena",
+      freeze: "Freeze tool: click an object",
+      delete: "Delete tool: click an object",
+    };
+    flashStatus(labels[tool], 950);
+  }
 }
 
-function clearWorld() {
-  for (const body of [...world.bodies]) removeBody(body);
-  world.bodies.length = 0;
-  world.energy = 0;
-  world.peakHeight = 0;
+function toggleBlastMode(force = null) {
+  if (force === true) {
+    setTool("blast");
+    return;
+  }
+  if (force === false) {
+    setTool(app.tool === "blast" ? "cube" : app.tool, { silent: true });
+    return;
+  }
+  setTool(app.tool === "blast" ? "cube" : "blast");
+}
+
+function updateBlastSettings() {
+  app.blastStrength = Number(blastStrength.value);
+  app.blastRadius = Number(blastRadius.value);
+  app.blastLift = Number(blastLift.value);
+  blastStrengthOutput.textContent = app.blastStrength.toFixed(1);
+  blastRadiusOutput.textContent = app.blastRadius.toFixed(1);
+  blastLiftOutput.textContent = app.blastLift.toFixed(1);
+  updateBlastPreview();
+  updateToolReadouts();
+}
+
+function updateBlastPreview() {
+  if (!blastPreview) return;
+  blastPreview.visible = app.tool === "blast";
+  blastPreview.position.set(app.spawnTarget.x, 0.075, app.spawnTarget.z);
+  blastPreview.scale.setScalar(app.blastRadius);
+}
+
+function updateMaterialStats() {
+  const type = cubeMaterial.value;
+  const spec = MATERIALS[type];
+  materialBounce.textContent = `Bounce ${Math.round(spec.restitution * 100)}%`;
+  materialWeight.textContent = `Weight ${spec.density.toFixed(2)}`;
+  materialFriction.textContent = `Friction ${Math.round(spec.friction * 100)}%`;
+  updateToolReadouts();
+}
+
+function updateToolReadouts() {
+  const material = MATERIALS[cubeMaterial.value];
+  toolReadout.textContent = `${app.tool} tool`;
+  blastReadout.textContent = `blast ${app.blastStrength.toFixed(1)} / ${app.blastRadius.toFixed(1)} / ${app.blastLift.toFixed(1)}`;
+  materialReadout.textContent = `${cubeMaterial.value} ${Math.round(material.restitution * 100)}% bounce`;
+}
+
+function spawnDebugBurst() {
+  for (let i = 0; i < 12; i += 1) {
+    const drop = Math.random() < 0.5 ? dropSphere : dropCube;
+    drop(app.spawnTarget.x + randomBetween(-1.5, 1.5), app.spawnTarget.z + randomBetween(-1.5, 1.5), {
+      y: randomBetween(7, 13),
+      size: app.cubeSize * randomBetween(0.75, 1.15),
+    });
+  }
+  flashStatus("Debug burst", 700);
+}
+
+function reseedArena() {
+  resetWorld();
 }
 
 function setPlaying(playing) {
-  world.playing = playing;
+  app.playing = playing;
   playPauseIcon.textContent = playing ? "||" : ">";
   playPause.setAttribute("aria-label", playing ? "Pause simulation" : "Play simulation");
   playPause.title = playing ? "Pause" : "Play";
-  playPause.classList.toggle("active", playing);
-  flashStatus(playing ? "Simulation running" : "Simulation paused", 800);
 }
 
 function setGravity(name) {
-  world.gravity = name;
+  app.gravity = name;
+  const gravity = GRAVITY[name];
+  physicsWorld.gravity.set(gravity.x, gravity.y, gravity.z);
   for (const button of gravityControls.querySelectorAll(".segment")) {
     button.classList.toggle("active", button.dataset.gravity === name);
   }
-  gravityReadout.textContent = `${name} gravity`;
+  gravityReadout.textContent = gravity.label;
 }
 
 function setSpeed(speed) {
-  world.simSpeed = speed;
+  app.simSpeed = speed;
   for (const button of speedControls.querySelectorAll(".segment")) {
     button.classList.toggle("active", Number(button.dataset.speed) === speed);
   }
-  speedReadout.textContent = `${formatNumber(getEffectiveSimSpeed())}x sim`;
+  speedReadout.textContent = `${speed}x sim`;
+}
+
+function setMaxBodies(count) {
+  app.maxBodies = count;
+  maxBodies.value = String(count);
+  maxBodiesOutput.textContent = String(count);
+  while (app.bodies.length > app.maxBodies) removeBody(app.bodies[0]);
+}
+
+function setTrailOpacity(opacity) {
+  app.trailOpacity = opacity;
+  trailStrength.value = String(Math.round(opacity * 100));
+  trailStrengthOutput.textContent = `${Math.round(opacity * 100)}%`;
+}
+
+function setHudVisible(visible) {
+  app.showHud = visible;
+  hud.classList.toggle("hidden", !visible);
+  debugShowHud.checked = visible;
+}
+
+function setWireframe(enabled) {
+  app.debugWireframe = enabled;
+  debugWireframe.checked = enabled;
+  for (const entry of app.bodies) {
+    entry.mesh.material.wireframe = enabled;
+  }
+}
+
+function setControlsOpen(open) {
+  app.controlsOpen = open;
+  controlDock.classList.toggle("collapsed", !open);
+  toggleControlsButton.classList.toggle("active", open);
+  toggleControlsButton.setAttribute("aria-expanded", String(open));
+  toggleControlsLabel.textContent = open ? "Hide" : "Controls";
+  document.body.classList.toggle("controls-open", open);
+}
+
+function setDebugOpen(open) {
+  app.debugOpen = open;
+  debugPanel.classList.toggle("hidden", !open);
+  toggleDebugButton.classList.toggle("active", open);
 }
 
 function resetCamera() {
@@ -697,7 +938,7 @@ function resetCamera() {
   cameraRig.pitch = 0.72;
   cameraRig.distance = 17;
   cameraRig.targetY = 2.2;
-  flashStatus("Camera reset", 800);
+  flashStatus("Camera reset", 700);
 }
 
 function updateCamera() {
@@ -711,15 +952,13 @@ function updateCamera() {
 }
 
 function resize() {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  camera.aspect = width / height;
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(width, height, false);
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
 }
 
 function updateSpawnTarget(clientX, clientY) {
-  if (world.freezeTarget) return;
+  if (app.freezeTarget) return;
 
   const rect = canvas.getBoundingClientRect();
   const mouse = new THREE.Vector2(
@@ -729,228 +968,235 @@ function updateSpawnTarget(clientX, clientY) {
 
   raycaster.setFromCamera(mouse, camera);
   const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const hit = vec3();
+  const hit = new THREE.Vector3();
 
   if (raycaster.ray.intersectPlane(ground, hit)) {
-    world.spawnTarget.x = Math.max(-world.arena + 1, Math.min(world.arena - 1, hit.x));
-    world.spawnTarget.z = Math.max(-world.arena + 1, Math.min(world.arena - 1, hit.z));
-    marker.position.set(world.spawnTarget.x, 0.05, world.spawnTarget.z);
+    app.spawnTarget.x = Math.max(-app.arena + 1, Math.min(app.arena - 1, hit.x));
+    app.spawnTarget.z = Math.max(-app.arena + 1, Math.min(app.arena - 1, hit.z));
+    marker.position.set(app.spawnTarget.x, 0.05, app.spawnTarget.z);
+    updateBlastPreview();
   }
+}
+
+function pickBody(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -(((clientY - rect.top) / rect.height) * 2 - 1),
+  );
+  raycaster.setFromCamera(mouse, camera);
+  const intersections = raycaster.intersectObjects(app.bodies.map((entry) => entry.mesh), false);
+  return intersections.length > 0 ? intersections[0].object.userData.bodyEntry : null;
+}
+
+function toggleFreezeEntry(entry) {
+  entry.frozen = !entry.frozen;
+
+  if (entry.frozen) {
+    entry.body.velocity.set(0, 0, 0);
+    entry.body.angularVelocity.set(0, 0, 0);
+    entry.body.mass = 0;
+    entry.body.type = CANNON.Body.STATIC;
+    entry.body.updateMassProperties();
+    entry.body.sleep();
+    entry.mesh.material.emissive.setHex(0x103a5c);
+    flashStatus("Object frozen", 650);
+    return;
+  }
+
+  entry.body.type = CANNON.Body.DYNAMIC;
+  entry.body.mass = entry.originalMass;
+  entry.body.updateMassProperties();
+  entry.body.wakeUp();
+  entry.mesh.material.emissive.setHex(MATERIALS[entry.type].emissive);
+  flashStatus("Object unfrozen", 650);
+}
+
+function runCanvasTool(event) {
+  if (app.tool === "freeze" || app.tool === "delete") {
+    const entry = pickBody(event.clientX, event.clientY);
+    if (!entry) {
+      flashStatus(app.tool === "freeze" ? "No object to freeze" : "No object to delete", 650);
+      return;
+    }
+
+    if (app.tool === "freeze") {
+      toggleFreezeEntry(entry);
+    } else {
+      removeBody(entry);
+      flashStatus("Object deleted", 650);
+    }
+    return;
+  }
+
+  updateSpawnTarget(event.clientX, event.clientY);
+
+  if (app.tool === "blast") {
+    shockwave(app.spawnTarget.x, app.spawnTarget.z);
+  } else if (app.tool === "sphere") {
+    dropSphere();
+    flashStatus("Sphere dropped", 600);
+  } else {
+    dropCube();
+    flashStatus("Cube dropped", 600);
+  }
+}
+
+function getEffectiveSimSpeed() {
+  return app.simSpeed * (app.debugSlowMo ? 0.22 : 1);
 }
 
 function simulate(dt) {
-  const fixedDt = Math.min(dt, 1 / 30);
-  const substeps = Math.max(2, Math.min(8, Math.ceil(world.bodies.length / 30) + 2));
-  const step = fixedDt / substeps;
+  const gravity = GRAVITY[app.gravity];
+  physicsWorld.gravity.set(gravity.x, gravity.y, gravity.z);
 
-  for (let i = 0; i < substeps; i += 1) {
-    integrate(step);
-    solveCollisions();
+  if (app.gravity === "zero") {
+    applyZeroGravityDrift(dt);
+  } else if (app.chaos >= 7) {
+    applyHighChaosWind(dt);
+  }
+
+  physicsWorld.step(fixedTimeStep, Math.min(dt, 0.08), 8);
+}
+
+function applyZeroGravityDrift(dt) {
+  const strength = 1.2 + app.chaos * 0.22;
+  for (const entry of app.bodies) {
+    const p = entry.body.position;
+    const force = new CANNON.Vec3(-p.z * strength, 0, p.x * strength);
+    entry.body.applyForce(force, new CANNON.Vec3(0, 0, 0));
   }
 }
 
-function integrate(dt) {
-  const gravity = GRAVITY[world.gravity];
-  const chaos = world.chaos / 10;
-  world.energy = 0;
-  let framePeak = 0;
-
-  for (const body of world.bodies) {
-    body.vel.x += gravity.x * dt;
-    body.vel.y += gravity.y * dt;
-    body.vel.z += gravity.z * dt;
-
-    if (world.gravity === "zero") {
-      const vortex = vec3(-body.pos.z, 0, body.pos.x).multiplyScalar(0.42 * chaos * dt);
-      body.vel.add(vortex);
-    }
-
-    if (chaos > 0) {
-      body.vel.x += Math.sin(performance.now() * 0.0014 + body.pos.z) * chaos * dt * 1.2;
-      body.vel.z += Math.cos(performance.now() * 0.0012 + body.pos.x) * chaos * dt * 1.2;
-    }
-
-    body.vel.multiplyScalar(0.999 - Math.min(0.018, body.friction * 0.002));
-    body.pos.addScaledVector(body.vel, dt);
-    body.angularVel.multiplyScalar(0.995);
-    applyRotation(body, dt);
-    collideArena(body);
-    world.energy += body.vel.lengthSq() * body.mass;
-    framePeak = Math.max(framePeak, body.pos.y + body.half);
-  }
-
-  world.peakHeight = framePeak;
-}
-
-function applyRotation(body, dt) {
-  const axis = body.angularVel.clone();
-  const speed = axis.length();
-  if (speed < 0.0001) return;
-
-  axis.normalize();
-  const q = new THREE.Quaternion().setFromAxisAngle(axis, speed * dt);
-  body.mesh.quaternion.premultiply(q);
-}
-
-function collideArena(body) {
-  const h = body.half;
-  const min = -world.arena + h;
-  const max = world.arena - h;
-  const bounce = body.restitution + world.chaos * 0.012;
-
-  if (body.pos.y < h) {
-    body.pos.y = h;
-    if (body.vel.y < 0) body.vel.y *= -bounce;
-    body.vel.x *= 1 - body.friction * 0.065;
-    body.vel.z *= 1 - body.friction * 0.065;
-    body.angularVel.add(vec3(body.vel.z, 0, -body.vel.x).multiplyScalar(0.22));
-  }
-
-  if (body.pos.x < min) {
-    body.pos.x = min;
-    if (body.vel.x < 0) body.vel.x *= -bounce;
-    body.angularVel.z += body.vel.y * 0.2;
-  }
-  if (body.pos.x > max) {
-    body.pos.x = max;
-    if (body.vel.x > 0) body.vel.x *= -bounce;
-    body.angularVel.z -= body.vel.y * 0.2;
-  }
-  if (body.pos.z < min) {
-    body.pos.z = min;
-    if (body.vel.z < 0) body.vel.z *= -bounce;
-    body.angularVel.x -= body.vel.y * 0.2;
-  }
-  if (body.pos.z > max) {
-    body.pos.z = max;
-    if (body.vel.z > 0) body.vel.z *= -bounce;
-    body.angularVel.x += body.vel.y * 0.2;
+function applyHighChaosWind(dt) {
+  const strength = (app.chaos - 6) * 0.55;
+  const now = performance.now() * 0.001;
+  for (const entry of app.bodies) {
+    const p = entry.body.position;
+    const force = new CANNON.Vec3(
+      Math.sin(now + p.z * 0.4) * strength,
+      0,
+      Math.cos(now + p.x * 0.4) * strength,
+    );
+    entry.body.applyForce(force, new CANNON.Vec3(0, 0, 0));
   }
 }
 
-function solveCollisions() {
-  const bodies = world.bodies;
+function syncMeshes(now) {
+  app.energy = 0;
+  app.peakHeight = 0;
 
-  for (let i = 0; i < bodies.length; i += 1) {
-    for (let j = i + 1; j < bodies.length; j += 1) {
-      solvePair(bodies[i], bodies[j]);
-    }
+  for (const entry of app.bodies) {
+    const body = entry.body;
+    entry.mesh.position.set(body.position.x, body.position.y, body.position.z);
+    entry.mesh.quaternion.copy(body.quaternion);
+
+    const speedSq = lengthSquared(body.velocity);
+    app.energy += speedSq * body.mass;
+    app.peakHeight = Math.max(app.peakHeight, body.position.y);
   }
+
+  marker.scale.lerp(new THREE.Vector3(1, 1, 1), 0.16);
+  marker.rotation.z += 0.012 + app.chaos * 0.001;
+
+  if (app.trailsEnabled && now - app.lastTrailAt > Math.max(30, 150 - app.chaos * 8)) {
+    app.lastTrailAt = now;
+    addTrails();
+  }
+
+  updateTrails();
 }
 
-function solvePair(a, b) {
-  const dx = b.pos.x - a.pos.x;
-  const dy = b.pos.y - a.pos.y;
-  const dz = b.pos.z - a.pos.z;
-  const overlapX = a.half + b.half - Math.abs(dx);
-  const overlapY = a.half + b.half - Math.abs(dy);
-  const overlapZ = a.half + b.half - Math.abs(dz);
+function addTrails() {
+  const fastBodies = app.bodies.filter((entry) => lengthSquared(entry.body.velocity) > 10).slice(-12);
 
-  if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) return;
-
-  let normal = vec3(Math.sign(dx) || 1, 0, 0);
-  let depth = overlapX;
-
-  if (overlapY < depth) {
-    normal = vec3(0, Math.sign(dy) || 1, 0);
-    depth = overlapY;
-  }
-
-  if (overlapZ < depth) {
-    normal = vec3(0, 0, Math.sign(dz) || 1);
-    depth = overlapZ;
-  }
-
-  const invTotal = a.invMass + b.invMass;
-  const correction = normal.clone().multiplyScalar((depth + 0.004) / invTotal);
-  a.pos.addScaledVector(correction, -a.invMass);
-  b.pos.addScaledVector(correction, b.invMass);
-
-  const relative = b.vel.clone().sub(a.vel);
-  const normalVelocity = relative.dot(normal);
-  if (normalVelocity > 0) return;
-
-  const bounce = Math.min(0.94, Math.max(a.restitution, b.restitution) + world.chaos * 0.015);
-  const impulseSize = (-(1 + bounce) * normalVelocity) / invTotal;
-  const impulse = normal.clone().multiplyScalar(impulseSize);
-  a.vel.addScaledVector(impulse, -a.invMass);
-  b.vel.addScaledVector(impulse, b.invMass);
-
-  const tangent = relative.sub(normal.clone().multiplyScalar(normalVelocity));
-  if (tangent.lengthSq() > 0.0001) {
-    tangent.normalize();
-    const friction = Math.min(a.friction, b.friction);
-    const frictionImpulse = tangent.multiplyScalar(-impulseSize * friction * 0.08);
-    a.vel.addScaledVector(frictionImpulse, -a.invMass);
-    b.vel.addScaledVector(frictionImpulse, b.invMass);
-  }
-
-  const spin = normal.clone().cross(relative).multiplyScalar(0.18 + world.chaos * 0.02);
-  a.angularVel.addScaledVector(spin, -a.invMass);
-  b.angularVel.addScaledVector(spin, b.invMass);
-}
-
-function syncMeshes() {
-  for (const body of world.bodies) {
-    body.mesh.position.copy(body.pos);
-    updateTrail(body);
-  }
-
-  marker.scale.lerp(vec3(1, 1, 1), 0.16);
-  marker.rotation.z += 0.012 + world.chaos * 0.002;
-}
-
-function updateTrail(body) {
-  if (!world.trailsEnabled || world.trailOpacity <= 0) {
-    clearTrail(body);
-    return;
-  }
-
-  if (body.vel.lengthSq() < 26 || body.pos.y < body.half + 0.05) {
-    return;
-  }
-
-  if (!body.lastTrailPos || body.lastTrailPos.distanceToSquared(body.pos) > 1.35) {
-    body.lastTrailPos = body.pos.clone();
-    const ghost = new THREE.Mesh(sharedGeometry, body.mesh.material.clone());
-    ghost.position.copy(body.pos);
-    ghost.quaternion.copy(body.mesh.quaternion);
-    ghost.scale.copy(body.mesh.scale);
-    ghost.material.transparent = true;
-    ghost.material.opacity = world.trailOpacity;
-    ghost.material.depthWrite = false;
+  for (const entry of fastBodies) {
+    const material = new THREE.MeshBasicMaterial({
+      color: MATERIALS[entry.type].color,
+      transparent: true,
+      opacity: app.trailOpacity,
+      depthWrite: false,
+      wireframe: true,
+    });
+    const ghost = new THREE.Mesh(entry.mesh.geometry, material);
+    ghost.position.copy(entry.mesh.position);
+    ghost.quaternion.copy(entry.mesh.quaternion);
+    ghost.scale.copy(entry.mesh.scale);
     scene.add(ghost);
-    body.trail.push(ghost);
+    app.trails.push({ mesh: ghost, createdAt: performance.now(), life: 650 });
   }
 
-  while (body.trail.length > world.trailLimit) {
-    const old = body.trail.shift();
-    scene.remove(old);
-    old.material.dispose();
+  while (app.trails.length > 120) {
+    removeTrail(app.trails[0]);
   }
+}
 
-  for (let i = 0; i < body.trail.length; i += 1) {
-    const ghost = body.trail[i];
-    ghost.material.opacity = world.trailOpacity * ((i + 1) / body.trail.length);
+function updateTrails() {
+  const now = performance.now();
+  for (const trail of [...app.trails]) {
+    const age = now - trail.createdAt;
+    const t = age / trail.life;
+    trail.mesh.material.opacity = app.trailOpacity * Math.max(0, 1 - t);
+    trail.mesh.scale.multiplyScalar(1.006);
+    if (t >= 1) removeTrail(trail);
   }
+}
+
+function removeTrail(trail) {
+  const index = app.trails.indexOf(trail);
+  if (index >= 0) app.trails.splice(index, 1);
+  scene.remove(trail.mesh);
+  trail.mesh.material.dispose();
+}
+
+function clearAllTrails() {
+  for (const trail of [...app.trails]) removeTrail(trail);
 }
 
 function updateHud(now) {
-  world.frameCount += 1;
-  const elapsed = now - world.fpsStartedAt;
+  app.frameCount += 1;
+  const elapsed = now - app.fpsStartedAt;
   if (elapsed >= 500) {
-    const fps = Math.round((world.frameCount * 1000) / elapsed);
+    const fps = Math.round((app.frameCount * 1000) / elapsed);
     fpsReadout.textContent = `${fps} fps`;
-    world.frameCount = 0;
-    world.fpsStartedAt = now;
+    app.frameCount = 0;
+    app.fpsStartedAt = now;
   }
 
-  cubeCount.textContent = `${world.bodies.length} cubes`;
-  energyReadout.textContent = `${Math.round(world.energy)} energy`;
-  gravityReadout.textContent = `${world.gravity} gravity`;
-  speedReadout.textContent = `${formatNumber(getEffectiveSimSpeed())}x sim`;
-  heightReadout.textContent = `${world.peakHeight.toFixed(1)} peak`;
-  updateDebugPanel();
+  cubeCount.textContent = `${app.bodies.length} bodies`;
+  energyReadout.textContent = `${Math.round(app.energy)} energy`;
+  heightReadout.textContent = `${app.peakHeight.toFixed(1)} peak`;
+  debugBodies.textContent = `${app.bodies.length} / ${app.maxBodies}`;
+  debugGravity.textContent = `${GRAVITY[app.gravity].x}, ${GRAVITY[app.gravity].y}, ${GRAVITY[app.gravity].z}`;
+  debugSpawn.textContent = `${app.spawnTarget.x.toFixed(1)}, ${app.spawnTarget.z.toFixed(1)}`;
+  debugCamera.textContent = `${cameraRig.distance.toFixed(1)} / ${cameraRig.yaw.toFixed(2)} / ${cameraRig.pitch.toFixed(2)}`;
+  debugSnapshot.textContent = JSON.stringify(
+    {
+      bodies: app.bodies.length,
+      cubes: app.bodies.filter((entry) => entry.shapeKind === "cube").length,
+      spheres: app.bodies.filter((entry) => entry.shapeKind === "sphere").length,
+      frozen: app.bodies.filter((entry) => entry.frozen).length,
+      gravity: app.gravity,
+      simSpeed: app.simSpeed,
+      tool: app.tool,
+      blastMode: app.blastMode,
+      blast: {
+        strength: app.blastStrength,
+        radius: app.blastRadius,
+        lift: app.blastLift,
+      },
+      chaos: app.chaos,
+      peak: Number(app.peakHeight.toFixed(2)),
+      energy: Math.round(app.energy),
+      solver: {
+        engine: "cannon-es",
+        fixedTimeStep,
+        iterations: physicsWorld.solver.iterations,
+      },
+    },
+    null,
+    2,
+  );
 }
 
 function animate(now) {
@@ -958,25 +1204,25 @@ function animate(now) {
   lastNow = now;
   const effectiveSpeed = getEffectiveSimSpeed();
 
-  if (world.playing) {
+  if (app.playing) {
     simulate(dt * effectiveSpeed);
-    if (autoDrop.checked && now - world.lastAutoDrop > Math.max(100, 480 - world.chaos * 34)) {
-      world.lastAutoDrop = now;
-      dropCube(
-        world.spawnTarget.x + randomBetween(-1.2, 1.2),
-        world.spawnTarget.z + randomBetween(-1.2, 1.2),
-      );
+
+    if (autoDrop.checked && now - app.lastAutoDrop > Math.max(140, 620 - app.chaos * 35)) {
+      app.lastAutoDrop = now;
+      dropCube(app.spawnTarget.x + randomBetween(-1.1, 1.1), app.spawnTarget.z + randomBetween(-1.1, 1.1));
     }
-    if (world.rainMode && now - world.lastRainDrop > Math.max(60, 180 - world.chaos * 8)) {
-      world.lastRainDrop = now;
-      dropCube(randomBetween(-7.2, 7.2), randomBetween(-7.2, 7.2), {
+
+    if (app.rainMode && now - app.lastRainDrop > Math.max(80, 230 - app.chaos * 9)) {
+      app.lastRainDrop = now;
+      const drop = Math.random() < 0.4 ? dropSphere : dropCube;
+      drop(randomBetween(-7.1, 7.1), randomBetween(-7.1, 7.1), {
         y: randomBetween(10, 18),
-        size: world.cubeSize * randomBetween(0.6, 1.15),
+        size: app.cubeSize * randomBetween(0.62, 1.1),
       });
     }
   }
 
-  syncMeshes();
+  syncMeshes(now);
   updateCamera();
   updateHud(now);
   renderer.render(scene, camera);
@@ -1019,8 +1265,7 @@ function wireEvents() {
     pointer.down = false;
 
     if (!pointer.moved) {
-      updateSpawnTarget(event.clientX, event.clientY);
-      dropCube();
+      runCanvasTool(event);
     }
   });
 
@@ -1033,41 +1278,51 @@ function wireEvents() {
     cameraRig.distance = Math.max(8, Math.min(30, cameraRig.distance + event.deltaY * 0.012));
   }, { passive: false });
 
-  playPause.addEventListener("click", () => setPlaying(!world.playing));
-  toggleControlsButton.addEventListener("click", () => setControlsOpen(!world.controlsOpen));
+  playPause.addEventListener("click", () => setPlaying(!app.playing));
+  toggleControlsButton.addEventListener("click", () => setControlsOpen(!app.controlsOpen));
   singleStep.addEventListener("click", () => {
     simulate((1 / 60) * getEffectiveSimSpeed());
-    syncMeshes();
+    syncMeshes(performance.now());
     renderer.render(scene, camera);
     flashStatus("Single step");
   });
   resetCameraButton.addEventListener("click", resetCamera);
-  toggleDebugButton.addEventListener("click", () => setDebugOpen(!world.debugOpen));
+  toggleDebugButton.addEventListener("click", () => setDebugOpen(!app.debugOpen));
   closeDebugButton.addEventListener("click", () => setDebugOpen(false));
   resetScene.addEventListener("click", resetWorld);
   clearScene.addEventListener("click", () => {
     clearWorld();
     flashStatus("Arena cleared");
   });
-  dropCubeButton.addEventListener("click", () => {
-    dropCube();
-    flashStatus("Cube dropped", 700);
-  });
+  dropCubeButton.addEventListener("click", () => setTool("cube"));
+  dropSphereButton.addEventListener("click", () => setTool("sphere"));
   cubeStormButton.addEventListener("click", cubeStorm);
-  buildTowerButton.addEventListener("click", buildTower);
-  shockwaveButton.addEventListener("click", shockwave);
+  buildTowerButton.addEventListener("click", () => buildTower());
+  shockwaveButton.addEventListener("click", () => toggleBlastMode());
   spawnRainButton.addEventListener("click", () => toggleRain());
+  freezeToolButton.addEventListener("click", () => setTool(app.tool === "freeze" ? "cube" : "freeze"));
+  deleteToolButton.addEventListener("click", () => setTool(app.tool === "delete" ? "cube" : "delete"));
+  demoSceneButton.addEventListener("click", resetDemoScene);
   shuffleSceneButton.addEventListener("click", shuffleScene);
 
   cubeSize.addEventListener("input", () => {
-    world.cubeSize = Number(cubeSize.value);
-    sizeOutput.textContent = world.cubeSize.toFixed(2);
-    marker.scale.setScalar(0.8 + world.cubeSize * 0.4);
+    app.cubeSize = Number(cubeSize.value);
+    sizeOutput.textContent = app.cubeSize.toFixed(2);
+    marker.scale.setScalar(0.8 + app.cubeSize * 0.4);
   });
 
   chaosLevel.addEventListener("input", () => {
-    world.chaos = Number(chaosLevel.value);
-    chaosOutput.textContent = String(world.chaos);
+    app.chaos = Number(chaosLevel.value);
+    chaosOutput.textContent = String(app.chaos);
+  });
+
+  blastStrength.addEventListener("input", updateBlastSettings);
+  blastRadius.addEventListener("input", updateBlastSettings);
+  blastLift.addEventListener("input", updateBlastSettings);
+
+  cubeMaterial.addEventListener("change", () => {
+    updateMaterialStats();
+    flashStatus(`${cubeMaterial.value} material selected`, 650);
   });
 
   gravityControls.addEventListener("click", (event) => {
@@ -1093,11 +1348,9 @@ function wireEvents() {
   });
 
   trailMode.addEventListener("change", () => {
-    world.trailsEnabled = trailMode.checked;
-    if (!world.trailsEnabled) {
-      clearAllTrails();
-    }
-    flashStatus(world.trailsEnabled ? "Trails enabled" : "Trails disabled");
+    app.trailsEnabled = trailMode.checked;
+    if (!app.trailsEnabled) clearAllTrails();
+    flashStatus(app.trailsEnabled ? "Trails enabled" : "Trails disabled");
   });
 
   debugWireframe.addEventListener("change", () => {
@@ -1106,18 +1359,18 @@ function wireEvents() {
   });
 
   debugFreezeTarget.addEventListener("change", () => {
-    world.freezeTarget = debugFreezeTarget.checked;
-    flashStatus(world.freezeTarget ? "Spawn target locked" : "Spawn target unlocked");
+    app.freezeTarget = debugFreezeTarget.checked;
+    flashStatus(app.freezeTarget ? "Spawn target locked" : "Spawn target unlocked");
   });
 
   debugShowHud.addEventListener("change", () => {
     setHudVisible(debugShowHud.checked);
-    flashStatus(world.showHud ? "HUD visible" : "HUD hidden");
+    flashStatus(app.showHud ? "HUD visible" : "HUD hidden");
   });
 
   debugSlowMo.addEventListener("change", () => {
-    world.debugSlowMo = debugSlowMo.checked;
-    flashStatus(world.debugSlowMo ? "Debug slow motion enabled" : "Debug slow motion disabled");
+    app.debugSlowMo = debugSlowMo.checked;
+    flashStatus(app.debugSlowMo ? "Debug slow motion enabled" : "Debug slow motion disabled");
   });
 
   debugSpawnBurst.addEventListener("click", spawnDebugBurst);
@@ -1131,50 +1384,64 @@ function wireEvents() {
     const key = event.key.toLowerCase();
     if (key === " ") {
       event.preventDefault();
-      setPlaying(!world.playing);
+      setPlaying(!app.playing);
     }
-    if (key === "c") dropCube();
+    if (key === "c") setTool("cube");
+    if (key === "o") setTool("sphere");
     if (key === "s") cubeStorm();
-    if (key === "b") shockwave();
+    if (key === "b") toggleBlastMode();
+    if (key === "f") setTool(app.tool === "freeze" ? "cube" : "freeze");
+    if (key === "delete" || key === "backspace") {
+      event.preventDefault();
+      setTool(app.tool === "delete" ? "cube" : "delete");
+    }
     if (key === "t") buildTower();
     if (key === "r") toggleRain();
     if (key === "v") resetCamera();
-    if (key === "x") setControlsOpen(!world.controlsOpen);
-    if (key === "d") setDebugOpen(!world.debugOpen);
+    if (key === "x") setControlsOpen(!app.controlsOpen);
+    if (key === "d") setDebugOpen(!app.debugOpen);
   });
 }
 
 async function start() {
   try {
-    setStatus("Loading 3D engine");
-    THREE = await loadThree();
+    setStatus("Loading 3D renderer");
+    THREE = await loadModule(THREE_URLS, "Three.js");
+    setStatus("Loading physics engine");
+    CANNON = await loadModule(CANNON_URLS, "cannon-es");
     buildScene();
     wireEvents();
     setControlsOpen(false);
     setPlaying(true);
-    setGravity(world.gravity);
-    setSpeed(world.simSpeed);
-    setMaxBodies(world.maxBodies);
-    setTrailOpacity(world.trailOpacity);
-    setHudVisible(world.showHud);
+    setGravity(app.gravity);
+    setSpeed(app.simSpeed);
+    setMaxBodies(app.maxBodies);
+    setTrailOpacity(app.trailOpacity);
+    setHudVisible(app.showHud);
     setDebugOpen(false);
     setWireframe(false);
-    trailMode.checked = world.trailsEnabled;
-    debugWireframe.checked = world.debugWireframe;
-    debugFreezeTarget.checked = world.freezeTarget;
-    debugSlowMo.checked = world.debugSlowMo;
+    setTool("cube", { silent: true });
+    updateBlastSettings();
+    updateMaterialStats();
+    trailMode.checked = app.trailsEnabled;
+    debugWireframe.checked = app.debugWireframe;
+    debugFreezeTarget.checked = app.freezeTarget;
+    debugSlowMo.checked = app.debugSlowMo;
     spawnRainButton.setAttribute("aria-pressed", "false");
     hideStatus();
     lastNow = performance.now();
     requestAnimationFrame(animate);
   } catch (error) {
     console.error(error);
-    setStatus("Three.js could not load");
+    setStatus("3D physics engine could not load");
   }
 }
 
 sizeOutput.textContent = Number(cubeSize.value).toFixed(2);
 chaosOutput.textContent = chaosLevel.value;
+blastStrengthOutput.textContent = Number(blastStrength.value).toFixed(1);
+blastRadiusOutput.textContent = Number(blastRadius.value).toFixed(1);
+blastLiftOutput.textContent = Number(blastLift.value).toFixed(1);
 maxBodiesOutput.textContent = maxBodies.value;
 trailStrengthOutput.textContent = `${trailStrength.value}%`;
 start();

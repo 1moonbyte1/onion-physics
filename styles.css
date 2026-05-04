@@ -298,6 +298,10 @@ input:focus-visible {
   flex: 1.05 1 170px;
 }
 
+.control-group-blast {
+  flex: 1.4 1 300px;
+}
+
 .control-group-segmented {
   flex: 1.3 1 288px;
 }
@@ -351,9 +355,27 @@ select {
   border-color: rgba(115, 224, 188, 0.48);
 }
 
+.command-button.primary:not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(245, 247, 242, 0.18);
+}
+
 .command-button.hot {
   background: rgba(255, 123, 84, 0.2);
   border-color: rgba(255, 123, 84, 0.48);
+}
+
+.command-button.hot.active {
+  background: rgba(255, 123, 84, 0.34);
+  border-color: rgba(255, 123, 84, 0.86);
+  box-shadow:
+    0 0 0 1px rgba(255, 123, 84, 0.22),
+    0 0 26px rgba(255, 123, 84, 0.24);
+}
+
+.command-button.danger-tool.active {
+  background: rgba(255, 84, 84, 0.28);
+  border-color: rgba(255, 84, 84, 0.78);
 }
 
 .segment.active {
@@ -380,6 +402,32 @@ select {
   grid-template-columns: minmax(108px, 1fr) 50px;
   align-items: center;
   gap: 8px;
+}
+
+.control-group-blast .range-line {
+  grid-template-columns: 52px minmax(92px, 1fr) 44px;
+  color: var(--soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.material-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  color: var(--soft);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.material-stats span {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(245, 247, 242, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 input[type="range"] {
@@ -593,6 +641,18 @@ output {
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -50%) translateY(8px);
+}
+
+body.blast-mode #physicsCanvas {
+  cursor: crosshair;
+}
+
+body.freeze-mode #physicsCanvas {
+  cursor: cell;
+}
+
+body.delete-mode #physicsCanvas {
+  cursor: not-allowed;
 }
 
 @media (max-width: 980px) {
